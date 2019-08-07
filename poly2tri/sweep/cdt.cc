@@ -47,9 +47,9 @@ void CDT::AddPoint(Point* point) {
   sweep_context_->AddPoint(point);
 }
 
-void CDT::Triangulate()
+bool CDT::Triangulate()
 {
-  sweep_->Triangulate(*sweep_context_);
+  return sweep_->Triangulate(*sweep_context_);
 }
 
 std::vector<p2t::Triangle*> CDT::GetTriangles()

@@ -62,7 +62,7 @@ public:
    * 
    * @param tcx
    */
-  void Triangulate(SweepContext& tcx);
+  bool Triangulate(SweepContext& tcx);
   
   /**
    * Destructor - clean up memory
@@ -76,7 +76,7 @@ private:
    * 
    * @param tcx
    */
-  void SweepPoints(SweepContext& tcx);
+  bool SweepPoints(SweepContext& tcx);
 
   /**
    * Find closes node to the left of the new point and
@@ -96,9 +96,9 @@ private:
      * @param edge
      * @param node
      */
-  void EdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
+  bool EdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
 
-  void EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point, unsigned int flipCount = FLIP_COUNT_DEFAULT);
+  bool EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point, unsigned int flipCount = FLIP_COUNT_DEFAULT);
 
   /**
    * Creates a new front triangle and legalize it

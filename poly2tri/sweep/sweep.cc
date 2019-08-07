@@ -37,25 +37,30 @@
 namespace p2t {
 
 // Triangulate simple polygon with holes
-void Sweep::Triangulate(SweepContext& tcx)
+bool Sweep::Triangulate(SweepContext& tcx)
 {
+	bool result;
+
 	tcx.InitTriangulation();
 	tcx.CreateAdvancingFront(nodes_);
 	// Sweep points; build mesh
-	SweepPoints(tcx);
+	result = SweepPoints(tcx);
 	// Clean up
 	FinalizationPolygon(tcx);
+
+	return result;
 }
 
-void Sweep::SweepPoints(SweepContext& tcx)
+bool Sweep::SweepPoints(SweepContext& tcx)
 {
 	for (int i = 1; i < tcx.point_count(); i++) {
 		Point& point = *tcx.GetPoint(i);
 		Node* node = &PointEvent(tcx, point);
 		for (unsigned int i = 0; i < point.edge_list.size(); i++) {
-			EdgeEvent(tcx, point.edge_list[i], node);
+			if (!EdgeEvent(tcx, point.edge_list[i], node)) return false;
 		}
 	}
+	return true;
 }
 
 void Sweep::FinalizationPolygon(SweepContext& tcx)
@@ -88,27 +93,27 @@ Node& Sweep::PointEvent(SweepContext& tcx, Point& point)
 	return new_node;
 }
 
-void Sweep::EdgeEvent(SweepContext& tcx, Edge* edge, Node* node)
+bool Sweep::EdgeEvent(SweepContext& tcx, Edge* edge, Node* node)
 {
 	tcx.edge_event.constrained_edge = edge;
 	tcx.edge_event.right = (edge->p->x > edge->q->x);
 
 	if (IsEdgeSideOfTriangle(*node->triangle, *edge->p, *edge->q)) {
-		return;
+		return true;
 	}
 
 	// For now we will do all needed filling
 	// TODO: integrate with flip process might give some better performance
 	//       but for now this avoid the issue with cases that needs both flips and fills
 	FillEdgeEvent(tcx, edge, node);
-	EdgeEvent(tcx, *edge->p, *edge->q, node->triangle, *edge->q);
+	return EdgeEvent(tcx, *edge->p, *edge->q, node->triangle, *edge->q);
 }
 
-void Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point, unsigned int flipCount)
+bool Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point, unsigned int flipCount)
 {
-	if (flipCount == 0) return;
+	if (flipCount == 0) return false; // stack overflow prevention
 	if (IsEdgeSideOfTriangle(*triangle, ep, eq)) {
-		return;
+		return true;
 	}
 
 	Point* p1 = triangle->PointCCW(point);
@@ -120,18 +125,18 @@ void Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangl
 			// not change the given constraint and just keep a variable for the new constraint
 			tcx.edge_event.constrained_edge->q = p1;
 			auto t2 = &triangle->NeighborAcross(point);
-			if (uint64_t(t2) <= 100)
+			if (uint64_t(t2) <= 10000) // crazy small pointer
 			{
-				int breakp = 1231254;
+				return false;
 			}
 			triangle = &triangle->NeighborAcross(point);
-			if (triangle) EdgeEvent(tcx, ep, *p1, triangle, *p1);
+			if (triangle) EdgeEvent(tcx, ep, *p1, triangle, *p1, flipCount - 1);
 		}
 		else {
 			std::runtime_error("EdgeEvent - collinear points not supported");
 			assert(0);
 		}
-		return;
+		return true;
 	}
 
 	Point* p2 = triangle->PointCW(point);
@@ -143,18 +148,18 @@ void Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangl
 			// not change the given constraint and just keep a variable for the new constraint
 			tcx.edge_event.constrained_edge->q = p2;
 			auto t2 = &triangle->NeighborAcross(point);
-			if (uint64_t(t2) <= 100)
+			if (uint64_t(t2) <= 10000) // crazy small pointer
 			{
-				int breakp = 1231254;
+				return false;
 			}
 			triangle = &triangle->NeighborAcross(point);
-			if (triangle) EdgeEvent(tcx, ep, *p2, triangle, *p2);
+			if (triangle) EdgeEvent(tcx, ep, *p2, triangle, *p2, flipCount - 1);
 		}
 		else {
 			std::runtime_error("EdgeEvent - collinear points not supported");
 			assert(0);
 		}
-		return;
+		return true;
 	}
 
 	if (o1 == o2) {
@@ -172,6 +177,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangl
 		// This triangle crosses constraint so lets flippin start!
 		FlipEdgeEvent(tcx, ep, eq, triangle, point, flipCount - 1);
 	}
+	return true;
 }
 
 bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, Point& ep, Point& eq)

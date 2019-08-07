@@ -77,7 +77,7 @@ public:
   /**
    * Triangulate - do this AFTER you've added the polyline, holes, and Steiner points
    */
-  void Triangulate();
+  bool Triangulate();
   
   /**
    * Get CDT triangles
